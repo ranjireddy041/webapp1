@@ -1,0 +1,30 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('clone SCM') {
+            steps {
+                echo 'clone from scm'
+				git branch: 'main', credentialsId: 'github', url: 'https://github.com/ranjireddy041/webapp1.git'
+            }
+        }
+		stage('Build Artifact') {
+            steps {
+                echo 'build the using maven build tool'
+				sh 'mnv clean sonar:sonar'
+            }
+        }
+        stage('nexus-deploy') {
+            steps {
+                echo 'deploy the war file into the nexus repo'
+				sh 'mnv clean deploy'
+            }
+        }
+		stage('deploy') {
+            steps {
+                echo 'deploy into the tomcat app/n server'
+				deploy adapters: [tomcat9(credentialsId: 'tomcat', path: '', url: 'http://54.166.248.236:8081/')], contextPath: 'webapps', war: '**/*.war'
+            }
+        }
+    }
+}
