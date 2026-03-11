@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: webapp
-        image: ranjidokcerhub/projectrepo:webappimg
+        image: ranjidokcerhub/projectrepo:xyz
         ports:
         - containerPort: 8080
 
