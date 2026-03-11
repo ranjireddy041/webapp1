@@ -1,30 +1,73 @@
 pipeline {
     agent any
+	
+		tools{
+		maven 'maven3'
+	}
 
     stages {
-        stage('CLONE SCM') {
+        stage('checkout') {
             steps {
-                echo 'cloning code from Github'
-				git branch: 'main', url: 'https://github.com/devopstraininghub/webapp1.git'
+                echo 'code checkout from github'
+				git branch: 'main', url: 'https://github.com/ranjireddy041/webapp1.git'
             }
         }
 		
-				
-		stage('Build Artifact') {
-            steps {
-                echo 'Build Artifact with maven build tool'
-				sh 'mvn clean install'
-            }
-        }
-		
-		
-		stage('Deploy') {
-            steps {
-                echo 'Deploy to tomcat ap/n server '
-				deploy adapters: [tomcat9(credentialsId: 'tomcat-credentials', path: '', url: 'http://3.88.103.180:8081/')], contextPath: 'facebook', war: '**/*.war'
-            }
-        }
-    }
+		stage('scannig'){
+			steps{
+			 echo ' scanning the project code'
+			 sh 'ls -ltr'
+			 sh ''' mvn sonar:sonar \\
+						-Dsonar.host.url=http://44.203.38.27:9000 \\
+						-Dsonar.login=squ_a51dc249be8695b08004eb7c1ad2c3f058a7f470 '''
+			}
+		}
+		stage ('build Artifact'){
+			steps {
+					echo ' builing artifact'
+					sh 'mvn clean package'
+			}
+		}	
+			
+		stage ('docker image') {
+				steps{
+					echo ' building the docker image'
+					sh 'docker build -t ranjidokcerhub/projectrepo:${BUILD_NUMBER} . '
+				}
+		}
+		stage('push to docker hubrepo'){
+			steps{
+				echo 'push to docker hub repo'
+				script {
+					withCredentials([string(credentialsId: 'dockerhub', variable: 'dockerhub')]) {
+					sh ' docker login -u ranjidokcerhub -p ${dockerhub} '
+					}
+					sh ' docker push ranjidokcerhub/projectrepo:${BUILD_NUMBER} '
+					 echo 'pushed to dockerhub'
+				}	
+			}
+		}
+		stage('update deployment file in github'){
+			
+				environment {
+					GIT_REPO_NAME = "webapp1"
+					GIT_USER_NAME = "ranjireddy041"
+				}	
+				steps{
+					echo ' update deployment file'
+					withCredentials([string(credentialsId: 'github', variable: 'github')]) {
+					sh ''' git config user.email " ranji.reddy@gmail.com"
+							 git config user.name "ranjeeth"
+							 BUILD_NUMBER=${BUILD_NUMBER}
+							 sed -i "s/devopsrepo:.*/devopsrepo:${BUILD_NUMBER}/g" deployment/deployment.yaml
+							 git add .
+							 git commit -m "update deployment image to the version ${BUILD_NUMBER}"
+							 git push https://${github}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}
+							 HEAD: main
+					}	
+				}
+		}
+	}
 }
 
 
